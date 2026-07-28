@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SQL Sales Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0f14; --surface: #13161e; --surface2: #1a1e28; --surface3: #222736;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0; --muted: #6b7280; --muted2: #9ca3af;
+    --accent: #4f8ef7; --accent2: #7c3aed; --green: #22d3a0;
+    --amber: #f59e0b; --red: #f43f5e; --purple: #a78bfa;
+    --font: 'Inter', sans-serif; --mono: 'JetBrains Mono', monospace;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; line-height: 1.5; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
+  .logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo-mark { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-bottom: 10px; }
+  .logo-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .logo-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .nav-section { padding: 0 12px; margin-bottom: 4px; }
+  .nav-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; padding: 0 8px; margin: 12px 0 4px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--muted2); transition: all .15s; margin-bottom: 2px; border: 1px solid transparent; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(79,142,247,.12); color: var(--accent); border-color: rgba(79,142,247,.2); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .sidebar-footer { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; }
+  .badge.blue { background: rgba(79,142,247,.15); color: var(--accent); }
+  .badge.green { background: rgba(34,211,160,.12); color: var(--green); }
+  .main { margin-left: 220px; flex: 1; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .btn { padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); transition: all .15s; font-family: var(--font); }
+  .btn:hover { background: var(--surface3); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { opacity: .88; }
+  select.filter { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); padding: 6px 10px; border-radius: 7px; font-size: 12px; font-family: var(--font); cursor: pointer; }
+  .content { padding: 28px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; position: relative; overflow: hidden; }
+  .kpi-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .kpi-card.blue::after { background: linear-gradient(90deg, var(--accent), transparent); }
+  .kpi-card.green::after { background: linear-gradient(90deg, var(--green), transparent); }
+  .kpi-card.amber::after { background: linear-gradient(90deg, var(--amber), transparent); }
+  .kpi-card.purple::after { background: linear-gradient(90deg, var(--purple), transparent); }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 600; letter-spacing: -.5px; margin-bottom: 6px; }
+  .kpi-delta { font-size: 11px; display: flex; align-items: center; gap: 4px; }
+  .up { color: var(--green); } .down { color: var(--red); }
+  .kpi-icon { position: absolute; top: 16px; right: 18px; font-size: 22px; opacity: .25; }
+  .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .card-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .table-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 10px 22px; text-align: left; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 11px 22px; font-size: 13px; color: var(--text); }
+  .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .rank-1 { background: rgba(245,158,11,.18); color: var(--amber); }
+  .rank-2 { background: rgba(156,163,175,.12); color: var(--muted2); }
+  .rank-3 { background: rgba(180,120,80,.12); color: #cd7f32; }
+  .rank-n { background: var(--surface3); color: var(--muted); }
+  .sql-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .sql-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .sql-tab { padding: 12px 18px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all .15s; }
+  .sql-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .sql-body { padding: 20px 22px; }
+  pre { font-family: var(--mono); font-size: 12px; line-height: 1.8; color: #c9d1d9; overflow-x: auto; }
+  .kw { color: #79b8ff; } .fn { color: #b392f0; } .str { color: #9ecbff; } .cm { color: #6a737d; font-style: italic; } .num { color: #f8c555; }
+  .result-table { margin-top: 16px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .result-table table { font-family: var(--mono); font-size: 11px; }
+  .result-table thead th { font-size: 10px; padding: 7px 14px; }
+  .result-table tbody td { padding: 7px 14px; font-size: 11px; }
+  .region-list { display: flex; flex-direction: column; gap: 10px; }
+  .region-item { display: flex; align-items: center; gap: 10px; }
+  .region-name { font-size: 12px; color: var(--muted2); min-width: 80px; }
+  .region-bar-wrap { flex: 1; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+  .region-bar { height: 100%; border-radius: 3px; }
+  .region-val { font-size: 12px; font-weight: 500; min-width: 56px; text-align: right; }
+  .activity-list { display: flex; flex-direction: column; gap: 0; }
+  .activity-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .activity-text { font-size: 12px; color: var(--muted2); line-height: 1.5; }
+  .activity-text strong { color: var(--text); font-weight: 500; }
+  .activity-time { font-size: 10px; color: var(--muted); margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+  .page { display: none; } .page.active { display: block; }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">📊</div>
+    <div class="logo-name">SalesAnalytics</div>
+    <div class="logo-sub">MySQL · Power BI · Excel</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Main</div>
+    <div class="nav-item active" onclick="showPage('dashboard', this)"><span class="nav-icon">🏠</span> Dashboard</div>
+    <div class="nav-item" onclick="showPage('sql', this)"><span class="nav-icon">🗃️</span> SQL Queries</div>
+    <div class="nav-item" onclick="showPage('sales', this)"><span class="nav-icon">📈</span> Sales Data</div>
+    <div class="nav-item" onclick="showPage('reports', this)"><span class="nav-icon">📄</span> Reports</div>
+    <div class="nav-label">Analytics</div>
+    <div class="nav-item" onclick="showPage('window', this)"><span class="nav-icon">🪟</span> Window Functions</div>
+    <div class="nav-item" onclick="showPage('regions', this)"><span class="nav-icon">🗺️</span> Regional View</div>
+  </div>
+  <div class="sidebar-footer">
+    <div style="margin-bottom:10px;"><div class="badge blue">MySQL 8.0</div><div class="badge green" style="margin-left:4px;">Power BI</div></div>
+    <div style="font-size:11px;color:var(--muted);">10,247 records loaded</div>
+  </div>
+</aside>
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">Dashboard Overview</div>
+    <div class="topbar-right">
+      <select class="filter" onchange="filterData(this.value)">
+        <option value="2024">FY 2024</option><option value="2023">FY 2023</option>
+        <option value="q4">Q4 2024</option><option value="q3">Q3 2024</option>
+      </select>
+      <button class="btn" onclick="exportReport()">⬇ Export Excel</button>
+      <button class="btn primary" onclick="refreshData()">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="content">
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="kpi-grid">
+        <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kpi-rev">$4.82M</div><div class="kpi-delta up">▲ 18.4% vs last year</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">📦</div><div class="kpi-label">Total Orders</div><div class="kpi-value" id="kpi-orders">10,247</div><div class="kpi-delta up">▲ 12.1% vs last year</div></div>
+        <div class="kpi-card amber"><div class="kpi-icon">👤</div><div class="kpi-label">Avg Order Value</div><div class="kpi-value" id="kpi-aov">$470</div><div class="kpi-delta up">▲ 5.6% vs last year</div></div>
+        <div class="kpi-card purple"><div class="kpi-icon">⚡</div><div class="kpi-label">Time Saved / Month</div><div class="kpi-value">3+ hrs</div><div class="kpi-delta up">▲ Automated reporting</div></div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="card-header"><div><div class="card-title">Monthly Revenue Trend</div><div class="card-sub">Running total via SQL window function</div></div></div>
+          <canvas id="revenueChart" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="card-header"><div><div class="card-title">Sales by Category</div><div class="card-sub">Product breakdown</div></div></div>
+          <canvas id="donutChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="bottom-row">
+        <div class="chart-card">
+          <div class="card-header"><div><div class="card-title">Revenue by Region</div><div class="card-sub">Ranked using SQL RANK()</div></div></div>
+          <div class="region-list">
+            <div class="region-item"><div class="region-name">North</div><div class="region-bar-wrap"><div class="region-bar" style="width:92%;background:var(--accent);"></div></div><div class="region-val" style="color:var(--accent);">$1.44M</div></div>
+            <div class="region-item"><div class="region-name">West</div><div class="region-bar-wrap"><div class="region-bar" style="width:76%;background:var(--purple);"></div></div><div class="region-val" style="color:var(--purple);">$1.19M</div></div>
+            <div class="region-item"><div class="region-name">East</div><div class="region-bar-wrap"><div class="region-bar" style="width:61%;background:var(--green);"></div></div><div class="region-val" style="color:var(--green);">$0.96M</div></div>
+            <div class="region-item"><div class="region-name">South</div><div class="region-bar-wrap"><div class="region-bar" style="width:48%;background:var(--amber);"></div></div><div class="region-val" style="color:var(--amber);">$0.75M</div></div>
+            <div class="region-item"><div class="region-name">Central</div><div class="region-bar-wrap"><div class="region-bar" style="width:31%;background:var(--muted);"></div></div><div class="region-val" style="color:var(--muted);">$0.48M</div></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-header"><div class="card-title">Recent Activity</div></div>
+          <div class="activity-list">
+            <div class="activity-item"><div class="activity-dot" style="background:var(--green);"></div><div class="activity-text"><strong>Monthly report auto-generated</strong><br>Excel macro ran — Dec 2024 report ready</div><div class="activity-time">2 min ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:var(--accent);"></div><div class="activity-text"><strong>Dashboard refreshed</strong><br>10,247 records synced from MySQL</div><div class="activity-time">15 min ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:var(--amber);"></div><div class="activity-text"><strong>Q4 window function query ran</strong><br>Rankings & running totals updated</div><div class="activity-time">1 hr ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:var(--purple);"></div><div class="activity-text"><strong>Stakeholder report shared</strong><br>Power BI link sent to 6 managers</div><div class="activity-time">3 hrs ago</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- SQL PAGE -->
+    <div class="page" id="page-sql">
+      <div class="sql-card">
+        <div style="padding:18px 22px;border-bottom:1px solid var(--border);"><div class="card-title">SQL Queries — Window Functions</div><div class="card-sub" style="margin-top:3px;">Actual queries used to analyse 10,000+ sales records</div></div>
+        <div class="sql-tabs">
+          <div class="sql-tab active" onclick="showTab('q1',this)">Running Total</div>
+          <div class="sql-tab" onclick="showTab('q2',this)">Salesperson Rank</div>
+          <div class="sql-tab" onclick="showTab('q3',this)">MoM Growth</div>
+          <div class="sql-tab" onclick="showTab('q4',this)">Top Products</div>
+        </div>
+        <div class="sql-body">
+          <div id="q1"><pre><span class="cm">-- Running total of revenue month by month</span>
+<span class="kw">SELECT</span> order_date, salesperson, revenue,
+    <span class="fn">SUM</span>(revenue) <span class="kw">OVER</span> (
+        <span class="kw">PARTITION BY</span> <span class="fn">YEAR</span>(order_date)
+        <span class="kw">ORDER BY</span> order_date
+        <span class="kw">ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</span>
+    ) <span class="kw">AS</span> running_total
+<span class="kw">FROM</span> sales <span class="kw">ORDER BY</span> order_date;</pre>
+            <div class="result-table"><table><thead><tr><th>order_date</th><th>salesperson</th><th>revenue</th><th>running_total</th></tr></thead><tbody>
+              <tr><td>2024-01-05</td><td>Alice Chen</td><td>$12,400</td><td>$12,400</td></tr>
+              <tr><td>2024-01-12</td><td>Bob Patel</td><td>$8,750</td><td>$21,150</td></tr>
+              <tr><td>2024-01-18</td><td>Carol Singh</td><td>$15,200</td><td>$36,350</td></tr>
+            </tbody></table></div>
+          </div>
+          <div id="q2" style="display:none;"><pre><span class="cm">-- Rank salespersons by total revenue</span>
+<span class="kw">SELECT</span> salesperson, <span class="fn">SUM</span>(revenue) <span class="kw">AS</span> total_revenue,
+    <span class="fn">RANK</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> <span class="fn">SUM</span>(revenue) <span class="kw">DESC</span>) <span class="kw">AS</span> revenue_rank,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(revenue)*<span class="num">100.0</span>/<span class="fn">SUM</span>(<span class="fn">SUM</span>(revenue)) <span class="kw">OVER</span>(),<span class="num">2</span>) <span class="kw">AS</span> pct_of_total
+<span class="kw">FROM</span> sales <span class="kw">GROUP BY</span> salesperson <span class="kw">ORDER BY</span> revenue_rank;</pre>
+            <div class="result-table"><table><thead><tr><th>salesperson</th><th>total_revenue</th><th>rank</th><th>pct_of_total</th></tr></thead><tbody>
+              <tr><td>Alice Chen</td><td>$621,800</td><td>1</td><td>12.90%</td></tr>
+              <tr><td>Raj Verma</td><td>$598,450</td><td>2</td><td>12.41%</td></tr>
+              <tr><td>Carol Singh</td><td>$541,200</td><td>3</td><td>11.22%</td></tr>
+            </tbody></table></div>
+          </div>
+          <div id="q3" style="display:none;"><pre><span class="cm">-- Month-over-month revenue growth using LAG()</span>
+<span class="kw">WITH</span> monthly <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> <span class="fn">DATE_FORMAT</span>(order_date,<span class="str">'%Y-%m'</span>) <span class="kw">AS</span> month, <span class="fn">SUM</span>(revenue) <span class="kw">AS</span> monthly_rev
+    <span class="kw">FROM</span> sales <span class="kw">GROUP BY</span> month
+)
+<span class="kw">SELECT</span> month, monthly_rev,
+    <span class="fn">LAG</span>(monthly_rev) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> month) <span class="kw">AS</span> prev_month,
+    <span class="fn">ROUND</span>((monthly_rev - <span class="fn">LAG</span>(monthly_rev) <span class="kw">OVER</span>(<span class="kw">ORDER BY</span> month))
+        / <span class="fn">LAG</span>(monthly_rev) <span class="kw">OVER</span>(<span class="kw">ORDER BY</span> month)*<span class="num">100</span>,<span class="num">2</span>) <span class="kw">AS</span> mom_growth_pct
+<span class="kw">FROM</span> monthly;</pre>
+            <div class="result-table"><table><thead><tr><th>month</th><th>monthly_rev</th><th>prev_month</th><th>mom_growth_%</th></tr></thead><tbody>
+              <tr><td>2024-01</td><td>$340,200</td><td>NULL</td><td>NULL</td></tr>
+              <tr><td>2024-02</td><td>$378,500</td><td>$340,200</td><td style="color:var(--green);">+11.25%</td></tr>
+              <tr><td>2024-03</td><td>$412,100</td><td>$378,500</td><td style="color:var(--green);">+8.88%</td></tr>
+              <tr><td>2024-04</td><td>$389,800</td><td>$412,100</td><td style="color:var(--red);">-5.41%</td></tr>
+            </tbody></table></div>
+          </div>
+          <div id="q4" style="display:none;"><pre><span class="cm">-- Top products per category using DENSE_RANK()</span>
+<span class="kw">SELECT</span> product_name, category, <span class="fn">SUM</span>(revenue) <span class="kw">AS</span> total_revenue, <span class="fn">COUNT</span>(*) <span class="kw">AS</span> units_sold,
+    <span class="fn">DENSE_RANK</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> category <span class="kw">ORDER BY</span> <span class="fn">SUM</span>(revenue) <span class="kw">DESC</span>) <span class="kw">AS</span> rank_in_category
+<span class="kw">FROM</span> sales <span class="kw">GROUP BY</span> product_name, category
+<span class="kw">HAVING</span> rank_in_category = <span class="num">1</span> <span class="kw">ORDER BY</span> total_revenue <span class="kw">DESC</span>;</pre>
+            <div class="result-table"><table><thead><tr><th>product_name</th><th>category</th><th>total_revenue</th><th>units_sold</th></tr></thead><tbody>
+              <tr><td>Enterprise Suite</td><td>Software</td><td>$980,400</td><td>412</td></tr>
+              <tr><td>Pro Laptop X1</td><td>Hardware</td><td>$756,200</td><td>890</td></tr>
+              <tr><td>Annual Support</td><td>Services</td><td>$542,100</td><td>2,341</td></tr>
+            </tbody></table></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- SALES DATA -->
+    <div class="page" id="page-sales">
+      <div class="table-card">
+        <div class="table-header"><div><div class="card-title">Sales Records</div><div class="card-sub" style="margin-top:2px;">Showing top 10 of 10,247 records</div></div><button class="btn" onclick="sortTable()">⇅ Sort by Revenue</button></div>
+        <table><thead><tr><th>Rank</th><th>Order ID</th><th>Salesperson</th><th>Product</th><th>Region</th><th>Revenue</th><th>Date</th><th>MoM Δ</th></tr></thead>
+        <tbody id="salesBody"></tbody></table>
+      </div>
+    </div>
+    <!-- REPORTS -->
+    <div class="page" id="page-reports">
+      <div class="chart-card" style="margin-bottom:20px;">
+        <div class="card-header"><div><div class="card-title">Automated Monthly Reports</div><div class="card-sub">Generated via Excel macro — saves 3+ hours/month</div></div><button class="btn primary" onclick="generateReport()">▶ Run Report Now</button></div>
+        <div id="report-output" style="font-family:var(--mono);font-size:12px;color:var(--muted2);line-height:1.9;margin-top:12px;"></div>
+      </div>
+      <div class="bottom-row">
+        <div class="chart-card">
+          <div class="card-header"><div class="card-title">Report History</div></div>
+          <div class="activity-list">
+            <div class="activity-item"><div class="activity-dot" style="background:var(--green);"></div><div class="activity-text"><strong>Dec 2024 Report</strong><br>Auto-generated · 847 rows</div><div class="activity-time">2 days ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:var(--green);"></div><div class="activity-text"><strong>Nov 2024 Report</strong><br>Auto-generated · 912 rows</div><div class="activity-time">1 month ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:var(--green);"></div><div class="activity-text"><strong>Oct 2024 Report</strong><br>Auto-generated · 798 rows</div><div class="activity-time">2 months ago</div></div>
+          </div>
+        </div>
+        <div class="chart-card"><div class="card-header"><div class="card-title">Time Savings Chart</div></div><canvas id="savingsChart" height="200"></canvas></div>
+      </div>
+    </div>
+    <!-- WINDOW FUNCTIONS -->
+    <div class="page" id="page-window">
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="kpi-card blue"><div class="kpi-label">Window Functions Used</div><div class="kpi-value">6</div><div class="kpi-delta" style="color:var(--muted2);">SUM · RANK · LAG · LEAD · ROW_NUMBER · DENSE_RANK</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Queries Written</div><div class="kpi-value">24</div><div class="kpi-delta" style="color:var(--muted2);">Across 4 analytical domains</div></div>
+        <div class="kpi-card amber"><div class="kpi-label">Records Processed</div><div class="kpi-value">10,247</div><div class="kpi-delta" style="color:var(--muted2);">From 3 joined tables</div></div>
+      </div>
+      <div class="chart-card" style="margin-top:0;"><div class="card-header"><div class="card-title">Window function reference</div></div>
+        <table><thead><tr><th>Function</th><th>What it does</th><th>Used for</th></tr></thead><tbody>
+          <tr><td><code style="color:var(--purple);font-family:var(--mono);">SUM() OVER()</code></td><td>Cumulative sum across a window</td><td>Running revenue totals</td></tr>
+          <tr><td><code style="color:var(--purple);font-family:var(--mono);">RANK()</code></td><td>Assigns rank, skips on tie</td><td>Salesperson leaderboard</td></tr>
+          <tr><td><code style="color:var(--purple);font-family:var(--mono);">DENSE_RANK()</code></td><td>Assigns rank, no skip on tie</td><td>Product ranking by category</td></tr>
+          <tr><td><code style="color:var(--purple);font-family:var(--mono);">LAG()</code></td><td>Gets value from previous row</td><td>Month-over-month growth</td></tr>
+          <tr><td><code style="color:var(--purple);font-family:var(--mono);">LEAD()</code></td><td>Gets value from next row</td><td>Forecasting next period</td></tr>
+          <tr><td><code style="color:var(--purple);font-family:var(--mono);">ROW_NUMBER()</code></td><td>Unique sequential row number</td><td>Paginated reports</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <!-- REGIONS -->
+    <div class="page" id="page-regions">
+      <div class="charts-row">
+        <div class="chart-card"><div class="card-header"><div class="card-title">Regional Performance Over Time</div></div><canvas id="regionalChart" height="220"></canvas></div>
+        <div class="chart-card"><div class="card-header"><div class="card-title">Region Share</div></div><canvas id="regionPie" height="220"></canvas></div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+<script>
+const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const revenue=[340200,378500,412100,389800,445600,502100,478300,521400,490200,545800,589400,628600];
+const running=revenue.map((v,i)=>revenue.slice(0,i+1).reduce((a,b)=>a+b,0));
+const salesData=[
+  {id:'ORD-4821',name:'Alice Chen',product:'Enterprise Suite',region:'North',rev:12400,date:'2024-12-18',mom:'+11.2%',pos:true},
+  {id:'ORD-4820',name:'Raj Verma',product:'Pro Laptop X1',region:'West',rev:9800,date:'2024-12-17',mom:'+8.4%',pos:true},
+  {id:'ORD-4819',name:'Carol Singh',product:'Annual Support',region:'East',rev:15200,date:'2024-12-16',mom:'-3.1%',pos:false},
+  {id:'ORD-4818',name:'Bob Patel',product:'Smart Monitor 4K',region:'South',rev:7600,date:'2024-12-15',mom:'+14.3%',pos:true},
+  {id:'ORD-4817',name:'Diana Luo',product:'Enterprise Suite',region:'North',rev:18900,date:'2024-12-14',mom:'+22.1%',pos:true},
+  {id:'ORD-4816',name:'Alice Chen',product:'Cloud Storage Pro',region:'West',rev:4200,date:'2024-12-13',mom:'-1.8%',pos:false},
+  {id:'ORD-4815',name:'Raj Verma',product:'Pro Laptop X1',region:'Central',rev:11600,date:'2024-12-12',mom:'+6.7%',pos:true},
+  {id:'ORD-4814',name:'Carol Singh',product:'Annual Support',region:'North',rev:8300,date:'2024-12-11',mom:'+9.2%',pos:true},
+  {id:'ORD-4813',name:'Evan Kim',product:'Enterprise Suite',region:'East',rev:21500,date:'2024-12-10',mom:'+18.5%',pos:true},
+  {id:'ORD-4812',name:'Bob Patel',product:'Smart Monitor 4K',region:'South',rev:6100,date:'2024-12-09',mom:'-5.3%',pos:false},
+];
+let sortAsc=false;
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  const t={dashboard:'Dashboard Overview',sql:'SQL Queries',sales:'Sales Data',reports:'Automated Reports',window:'Window Functions',regions:'Regional View'};
+  document.getElementById('page-title').textContent=t[id];
+  if(id==='regions')initRegionalCharts();
+  if(id==='reports')initSavingsChart();
+}
+function showTab(id,el){
+  ['q1','q2','q3','q4'].forEach(q=>document.getElementById(q).style.display=q===id?'block':'none');
+  document.querySelectorAll('.sql-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+function buildTable(data){
+  const b=document.getElementById('salesBody'); b.innerHTML='';
+  data.forEach((r,i)=>{
+    const rc=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    b.innerHTML+=`<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td style="font-family:var(--mono);font-size:11px;color:var(--muted2);">${r.id}</td><td>${r.name}</td><td style="color:var(--muted2);">${r.product}</td><td><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface3);color:var(--muted2);">${r.region}</span></td><td style="font-weight:500;color:var(--accent);">$${r.rev.toLocaleString()}</td><td style="color:var(--muted);font-size:12px;">${r.date}</td><td style="color:${r.pos?'var(--green)':'var(--red)'};font-size:12px;font-weight:500;">${r.mom}</td></tr>`;
+  });
+}
+function sortTable(){sortAsc=!sortAsc;buildTable([...salesData].sort((a,b)=>sortAsc?a.rev-b.rev:b.rev-a.rev));}
+function filterData(v){const m={2024:1,2023:.78,q4:.26,q3:.24}[v]||1;document.getElementById('kpi-rev').textContent='$'+(4.82*m).toFixed(2)+'M';document.getElementById('kpi-orders').textContent=Math.round(10247*m).toLocaleString();document.getElementById('kpi-aov').textContent='$'+Math.round(470*(.9+m*.1));}
+function exportReport(){alert('✅ Export triggered!\n\nIn a real deployment this downloads:\n• sales_report_dec2024.xlsx\n• 10,247 rows, 8 columns\n• Generated by Excel macro');}
+function refreshData(){const b=document.querySelector('.btn.primary');b.textContent='⟳ Syncing...';b.disabled=true;setTimeout(()=>{b.textContent='↻ Refresh';b.disabled=false;alert('✅ Data refreshed!\n\n10,247 records synced from MySQL.')},1800);}
+function generateReport(){
+  const o=document.getElementById('report-output'); o.innerHTML='';
+  const lines=['<span style="color:#22d3a0;">▶ Connecting to MySQL database...</span>','<span style="color:#6b7280;">  → HOST: sales-db.internal | PORT: 3306</span>','<span style="color:#22d3a0;">✓ Connected. Fetching 10,247 records...</span>','<span style="color:#6b7280;">  → Running window function queries...</span>','<span style="color:#6b7280;">  → Calculating running totals...</span>','<span style="color:#6b7280;">  → Ranking salespersons...</span>','<span style="color:#22d3a0;">✓ Query complete. 847 rows for Dec 2024.</span>','<span style="color:#6b7280;">  → Loading Excel template...</span>','<span style="color:#6b7280;">  → Running macro: FormatSalesReport()...</span>','<span style="color:#22d3a0;">✓ Excel report generated: sales_dec2024.xlsx</span>','<span style="color:#4f8ef7;">  → Time taken: 4.2 seconds (vs 3.5 hrs manually)</span>','<span style="color:#22d3a0;font-weight:600;">✓ Done. Report ready for stakeholders.</span>'];
+  let i=0; const iv=setInterval(()=>{if(i<lines.length){o.innerHTML+=lines[i]+'\n';i++;}else clearInterval(iv);},200);
+}
+function initRegionalCharts(){
+  if(window._rd)return; window._rd=true;
+  new Chart(document.getElementById('regionalChart'),{type:'line',data:{labels:months,datasets:[
+    {label:'North',data:[82,91,95,88,102,118,108,125,115,130,142,148],borderColor:'#4f8ef7',backgroundColor:'rgba(79,142,247,0.08)',fill:true,tension:.4,borderWidth:2,pointRadius:2},
+    {label:'West',data:[68,72,78,74,82,92,88,96,91,102,112,118],borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,0.08)',fill:true,tension:.4,borderWidth:2,pointRadius:2},
+    {label:'East',data:[52,58,61,56,64,71,68,74,70,80,86,89],borderColor:'#22d3a0',backgroundColor:'rgba(34,211,160,0.08)',fill:true,tension:.4,borderWidth:2,pointRadius:2},
+    {label:'South',data:[38,42,46,43,50,55,52,58,54,62,68,71],borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',fill:true,tension:.4,borderWidth:2,pointRadius:2},
+  ]},options:{plugins:{legend:{labels:{color:'#9ca3af',font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11},callback:v=>'$'+v+'k'}}}}});
+  new Chart(document.getElementById('regionPie'),{type:'pie',data:{labels:['North','West','East','South','Central'],datasets:[{data:[30,25,20,16,9],backgroundColor:['#4f8ef7','#a78bfa','#22d3a0','#f59e0b','#6b7280'],borderWidth:0,hoverOffset:6}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#9ca3af',font:{size:11},padding:12,boxWidth:10}}}}});
+}
+function initSavingsChart(){
+  if(window._sd)return; window._sd=true;
+  new Chart(document.getElementById('savingsChart'),{type:'bar',data:{labels:months,datasets:[
+    {label:'Manual (hrs)',data:[3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5],backgroundColor:'rgba(244,63,94,0.3)',borderColor:'#f43f5e',borderWidth:1,borderRadius:4},
+    {label:'Automated (hrs)',data:[.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1],backgroundColor:'rgba(34,211,160,0.3)',borderColor:'#22d3a0',borderWidth:1,borderRadius:4}
+  ]},options:{plugins:{legend:{labels:{color:'#9ca3af',font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11},callback:v=>v+'h'},max:5}}}});
+}
+window.addEventListener('load',()=>{
+  new Chart(document.getElementById('revenueChart'),{type:'bar',data:{labels:months,datasets:[
+    {label:'Revenue',data:revenue,backgroundColor:'rgba(79,142,247,0.2)',borderColor:'#4f8ef7',borderWidth:1.5,borderRadius:4,order:2},
+    {label:'Running Total',data:running,type:'line',borderColor:'#22d3a0',borderWidth:2,pointRadius:3,pointBackgroundColor:'#22d3a0',tension:.4,fill:false,yAxisID:'y2',order:1}
+  ]},options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11},callback:v=>'$'+Math.round(v/1000)+'k'},position:'left'},y2:{grid:{display:false},ticks:{color:'#22d3a0',font:{size:11},callback:v=>'$'+(v/1000000).toFixed(1)+'M'},position:'right'}}}});
+  new Chart(document.getElementById('donutChart'),{type:'doughnut',data:{labels:['Software','Hardware','Services','Accessories'],datasets:[{data:[38,31,22,9],backgroundColor:['#4f8ef7','#7c3aed','#22d3a0','#f59e0b'],borderWidth:0,hoverOffset:6}]},options:{cutout:'72%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#9ca3af',font:{size:11},padding:14,boxWidth:10}}}}});
+  buildTable(salesData);
+});
+</script>
+</body>
+</html>

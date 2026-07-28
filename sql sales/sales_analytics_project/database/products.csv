@@ -1,0 +1,9 @@
+id,product_name,category,unit_price,is_active
+1,Enterprise Suite,Software,2400.0,1
+2,Pro Laptop X1,Hardware,850.0,1
+3,Annual Support,Services,230.0,1
+4,Smart Monitor 4K,Hardware,320.0,1
+5,Cloud Storage Pro,Software,140.0,1
+6,Wireless Headset,Accessories,75.0,1
+7,Dev Toolkit License,Software,580.0,1
+8,On-site Training,Services,1200.0,1

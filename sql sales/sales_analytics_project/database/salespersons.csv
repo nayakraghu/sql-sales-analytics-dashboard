@@ -1,0 +1,9 @@
+id,name,email,region,hire_date,is_active
+1,Alice Chen,alice.chen@company.com,North,2020-03-15,1
+2,Raj Verma,raj.verma@company.com,West,2019-07-01,1
+3,Carol Singh,carol.singh@company.com,East,2021-01-10,1
+4,Bob Patel,bob.patel@company.com,South,2020-11-22,1
+5,Diana Luo,diana.luo@company.com,North,2022-04-05,1
+6,Evan Kim,evan.kim@company.com,East,2021-09-14,1
+7,Fatima Nair,fatima.nair@company.com,Central,2023-02-28,1
+8,George Tan,george.tan@company.com,West,2019-05-17,1
